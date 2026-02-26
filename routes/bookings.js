@@ -401,4 +401,95 @@ router.get('/stats/dashboard', auth, requireAdmin, async (req, res) => {
   }
 })
 
+router.get('/:id/ticket', async (req, res) => {
+  try {
+    const booking = await Booking.findOne({ bookingId: req.params.id })
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' })
+    }
+
+    const ticketData = {
+      bookingId: booking.bookingId,
+      visitDate: booking.visitDate,
+      customer: booking.customer,
+      tickets: booking.tickets,
+      pricing: booking.pricing,
+      qrCode: booking.qrCode,
+      status: booking.status,
+      paymentStatus: booking.payment.status
+    }
+
+    res.json(ticketData)
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message })
+  }
+})
+
+router.post('/:id/send-ticket', async (req, res) => {
+  try {
+    const { method } = req.body
+    const booking = await Booking.findOne({ bookingId: req.params.id })
+    
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' })
+    }
+
+    if (booking.payment.status !== 'PAID') {
+      return res.status(400).json({ message: 'Payment not completed' })
+    }
+
+    const settings = await Settings.find()
+    const settingsObj = {}
+    settings.forEach(s => { settingsObj[s.key] = s.value })
+
+    const parkName = settingsObj.parkName || 'Chapak Water Park'
+    const visitDate = new Date(booking.visitDate).toLocaleDateString('en-IN', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+
+    const ticketMessage = `*${parkName} Ticket*\n\n` +
+      `Booking ID: ${booking.bookingId}\n` +
+      `Visit Date: ${visitDate}\n` +
+      `Adults: ${booking.tickets.adult}\n` +
+      `Kids: ${booking.tickets.kids}\n` +
+      `Total: ₹${booking.pricing.finalAmount}\n\n` +
+      `Show this QR code at the entrance.`
+
+    let result = { success: false, message: '' }
+
+    if (method === 'whatsapp' || method === 'both') {
+      const whatsappMessage = encodeURIComponent(ticketMessage)
+      const phone = booking.customer.mobile.replace(/\D/g, '')
+      result.whatsappUrl = `https://wa.me/${phone}?text=${whatsappMessage}`
+      result.whatsapp = 'WhatsApp link generated'
+    }
+
+    if (method === 'sms' || method === 'both') {
+      const smsText = `${parkName}: Booking ${booking.bookingId}, Date: ${visitDate}, Tickets: ${booking.tickets.adult}A + ${booking.tickets.kids}K, Amount: ₹${booking.pricing.finalAmount}. Show QR at entrance.`
+      const smsEncoded = encodeURIComponent(smsText)
+      result.smsUrl = `sms:${booking.customer.mobile}?body=${smsEncoded}`
+      result.sms = 'SMS link generated'
+    }
+
+    result.success = true
+    result.booking = {
+      bookingId: booking.bookingId,
+      qrCode: booking.qrCode,
+      visitDate: visitDate,
+      customer: booking.customer,
+      tickets: booking.tickets,
+      total: booking.pricing.finalAmount,
+      parkName
+    }
+
+    res.json(result)
+  } catch (error) {
+    console.error('Send ticket error:', error)
+    res.status(500).json({ message: 'Server error', error: error.message })
+  }
+})
+
 export default router

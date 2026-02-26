@@ -19,15 +19,18 @@ const upload = multer({ storage })
 
 router.post('/upload', auth, requireSuperAdmin, upload.single('image'), async (req, res) => {
   try {
+    console.log('Upload request received, file:', req.file)
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' })
     }
 
+    console.log('Upload successful, url:', req.file.path)
     res.json({
       url: req.file.path,
       publicId: req.file.filename
     })
   } catch (error) {
+    console.error('Upload error:', error)
     res.status(500).json({ message: 'Upload error', error: error.message })
   }
 })

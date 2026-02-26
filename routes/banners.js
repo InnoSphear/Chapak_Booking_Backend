@@ -45,26 +45,55 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', auth, requireSuperAdmin, async (req, res) => {
   try {
+    console.log('=== Banner POST Request ===')
+    console.log('User:', req.user?.email, 'Role:', req.user?.role)
+    console.log('Request body:', JSON.stringify(req.body))
+    
     const { title, description, imageUrl, imagePublicId, linkUrl, isActive, displayOrder, startDate, endDate } = req.body
 
     if (!title || !imageUrl) {
+      console.log('Validation failed: missing title or imageUrl')
       return res.status(400).json({ message: 'Please provide title and imageUrl' })
     }
 
-    const banner = await Banner.create({
-      title,
-      description,
-      imageUrl,
-      imagePublicId,
-      linkUrl,
-      isActive: isActive !== undefined ? isActive : true,
-      displayOrder: displayOrder || 0,
-      startDate: startDate ? new Date(startDate) : null,
-      endDate: endDate ? new Date(endDate) : null
+    // Ensure title and imageUrl are strings
+    const safeTitle = String(title).trim()
+    const safeImageUrl = String(imageUrl).trim()
+    
+    if (!safeTitle || !safeImageUrl) {
+      console.log('Validation failed: empty title or imageUrl after trim')
+      return res.status(400).json({ message: 'Please provide valid title and imageUrl' })
+    }
+
+    console.log('Creating banner with data:', { 
+      title: safeTitle, 
+      imageUrl: safeImageUrl.substring(0, 50) + '...', 
+      displayOrder,
+      isActive 
     })
 
+    const bannerData = {
+      title: safeTitle,
+      description: description || '',
+      imageUrl: safeImageUrl,
+      imagePublicId: imagePublicId || '',
+      linkUrl: linkUrl || '',
+      isActive: isActive === true || isActive === 'true',
+      displayOrder: Number(displayOrder) || 0,
+      startDate: startDate ? new Date(startDate) : null,
+      endDate: endDate ? new Date(endDate) : null
+    }
+    
+    console.log('Banner data to create:', bannerData)
+    const banner = await Banner.create(bannerData)
+
+    console.log('Banner created successfully:', banner._id)
     res.status(201).json(banner)
   } catch (error) {
+    console.error('=== Banner Creation Error ===')
+    console.error('Error name:', error.name)
+    console.error('Error message:', error.message)
+    console.error('Error stack:', error.stack)
     res.status(500).json({ message: 'Server error', error: error.message })
   }
 })

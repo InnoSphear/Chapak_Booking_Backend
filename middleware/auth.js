@@ -18,9 +18,11 @@ export const auth = async (req, res, next) => {
       return res.status(401).json({ message: 'User not found' })
     }
 
+    console.log('Auth success for user:', user.email, 'role:', user.role)
     req.user = user
     next()
   } catch (error) {
+    console.error('Auth error:', error.message)
     res.status(401).json({ message: 'Token is not valid' })
   }
 }
