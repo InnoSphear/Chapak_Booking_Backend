@@ -4,46 +4,56 @@ import { auth, requireSuperAdmin } from '../middleware/auth.js'
 
 const router = express.Router()
 
-const asyncHandler = (fn) => (req, res, next) => {
-  Promise.resolve(fn(req, res, next)).catch(next)
-}
-
-router.get('/', asyncHandler(async (req, res) => {
-  const banners = await Banner.find().sort({ displayOrder: 1 })
-  res.json(banners)
-}))
-
-router.get('/debug', asyncHandler(async (req, res) => {
-  const allBanners = await Banner.find().sort({ displayOrder: 1 })
-  res.json({
-    total: allBanners.length,
-    banners: allBanners.map(b => ({
-      _id: b._id,
-      title: b.title,
-      imageUrl: b.imageUrl,
-      isActive: b.isActive,
-      displayOrder: b.displayOrder
-    }))
-  })
-}))
-
-router.get('/active', asyncHandler(async (req, res) => {
-  const banners = await Banner.find({ isActive: true }).sort({ displayOrder: 1 })
-  res.json(banners)
-}))
-
-router.get('/:id', asyncHandler(async (req, res) => {
-  const banner = await Banner.findById(req.params.id)
-  if (!banner) {
-    return res.status(404).json({ message: 'Banner not found' })
+router.get('/', async (req, res) => {
+  try {
+    const banners = await Banner.find().sort({ displayOrder: 1 })
+    res.json(banners)
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message })
   }
-  res.json(banner)
-}))
+})
+
+router.get('/debug', async (req, res) => {
+  try {
+    const allBanners = await Banner.find().sort({ displayOrder: 1 })
+    res.json({
+      total: allBanners.length,
+      banners: allBanners.map(b => ({
+        _id: b._id,
+        title: b.title,
+        imageUrl: b.imageUrl,
+        isActive: b.isActive,
+        displayOrder: b.displayOrder
+      }))
+    })
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message })
+  }
+})
+
+router.get('/active', async (req, res) => {
+  try {
+    const banners = await Banner.find({ isActive: true }).sort({ displayOrder: 1 })
+    res.json(banners)
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message })
+  }
+})
+
+router.get('/:id', async (req, res) => {
+  try {
+    const banner = await Banner.findById(req.params.id)
+    if (!banner) {
+      return res.status(404).json({ message: 'Banner not found' })
+    }
+    res.json(banner)
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message })
+  }
+})
 
 router.post('/', auth, requireSuperAdmin, async (req, res) => {
   try {
-    console.log('Banner POST body:', req.body)
-    
     const { title, description, imageUrl, imagePublicId, linkUrl, isActive, displayOrder, startDate, endDate } = req.body
 
     if (!title || !imageUrl) {
@@ -62,46 +72,49 @@ router.post('/', auth, requireSuperAdmin, async (req, res) => {
       endDate: endDate ? new Date(endDate) : null
     }
 
-    console.log('Creating banner:', bannerData)
-    
     const savedBanner = await Banner.create(bannerData)
-    console.log('Banner saved successfully:', savedBanner._id)
-    
     res.status(201).json(savedBanner)
   } catch (error) {
-    console.error('Banner create error:', error.message)
     res.status(500).json({ message: 'Server error', error: error.message })
   }
 })
 
-router.put('/:id', auth, requireSuperAdmin, asyncHandler(async (req, res) => {
-  const banner = await Banner.findById(req.params.id)
-  if (!banner) {
-    return res.status(404).json({ message: 'Banner not found' })
+router.put('/:id', auth, requireSuperAdmin, async (req, res) => {
+  try {
+    const banner = await Banner.findById(req.params.id)
+    if (!banner) {
+      return res.status(404).json({ message: 'Banner not found' })
+    }
+
+    const { title, description, imageUrl, imagePublicId, linkUrl, isActive, displayOrder, startDate, endDate } = req.body
+
+    if (title) banner.title = String(title).trim()
+    if (description !== undefined) banner.description = description
+    if (imageUrl) banner.imageUrl = String(imageUrl).trim()
+    if (imagePublicId !== undefined) banner.imagePublicId = imagePublicId
+    if (linkUrl !== undefined) banner.linkUrl = linkUrl
+    if (isActive !== undefined) banner.isActive = isActive === true || isActive === 'true'
+    if (displayOrder !== undefined) banner.displayOrder = parseInt(displayOrder) || 0
+    if (startDate !== undefined) banner.startDate = startDate ? new Date(startDate) : null
+    if (endDate !== undefined) banner.endDate = endDate ? new Date(endDate) : null
+
+    await banner.save()
+    res.json(banner)
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message })
   }
+})
 
-  const { title, description, imageUrl, imagePublicId, linkUrl, isActive, displayOrder, startDate, endDate } = req.body
-
-  if (title) banner.title = String(title).trim()
-  if (description !== undefined) banner.description = description
-  if (imageUrl) banner.imageUrl = String(imageUrl).trim()
-  if (imagePublicId !== undefined) banner.imagePublicId = imagePublicId
-  if (linkUrl !== undefined) banner.linkUrl = linkUrl
-  if (isActive !== undefined) banner.isActive = isActive === true || isActive === 'true'
-  if (displayOrder !== undefined) banner.displayOrder = parseInt(displayOrder) || 0
-  if (startDate !== undefined) banner.startDate = startDate ? new Date(startDate) : null
-  if (endDate !== undefined) banner.endDate = endDate ? new Date(endDate) : null
-
-  await banner.save()
-  res.json(banner)
-}))
-
-router.delete('/:id', auth, requireSuperAdmin, asyncHandler(async (req, res) => {
-  const banner = await Banner.findByIdAndDelete(req.params.id)
-  if (!banner) {
-    return res.status(404).json({ message: 'Banner not found' })
+router.delete('/:id', auth, requireSuperAdmin, async (req, res) => {
+  try {
+    const banner = await Banner.findByIdAndDelete(req.params.id)
+    if (!banner) {
+      return res.status(404).json({ message: 'Banner not found' })
+    }
+    res.json({ message: 'Banner deleted successfully' })
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message })
   }
-  res.json({ message: 'Banner deleted successfully' })
-}))
+})
 
 export default router
