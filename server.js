@@ -75,7 +75,7 @@ app.get('/api/health', (req, res) => {
   })
 })
 app.get('/api/hello', (req,res)=>{
-  res.send("Hello I am working")
+  res.send('Hello from Chapak Water Park API!')
 })
 
 app.use((err, req, res, next) => {
