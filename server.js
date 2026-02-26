@@ -29,7 +29,6 @@ mongoose.connect(MONGODB_URI)
 const initializeDefaultData = async () => {
   try {
     const Pricing = (await import('./models/Pricing.js')).default
-    const Banner = (await import('./models/Banner.js')).default
     
     const defaultPricing = [
       { type: 'weekday', adultPrice: 800, kidsPrice: 500, isActive: true },
@@ -42,36 +41,6 @@ const initializeDefaultData = async () => {
       await Pricing.findOneAndUpdate({ type: p.type }, p, { upsert: true, runValidators: false })
     }
     console.log('Default pricing initialized')
-    
-    const bannerCount = await Banner.countDocuments()
-    if (bannerCount === 0) {
-      console.log('No banners found, creating defaults...')
-      const defaultBanners = [
-        {
-          title: 'Welcome to Chapak Water Park',
-          description: 'Enjoy a splashing good time with your family!',
-          imageUrl: 'https://images.unsplash.com/photo-1575424909138-46b05e5919ec?w=1200',
-          isActive: true,
-          displayOrder: 1
-        },
-        {
-          title: 'Special Weekend Offer',
-          description: 'Get 20% off on all tickets this weekend!',
-          imageUrl: 'https://images.unsplash.com/photo-1541252260730-0412e8e2108e?w=1200',
-          isActive: true,
-          displayOrder: 2
-        },
-        {
-          title: 'Kids Day Out',
-          description: 'Kids under 12 years enjoy free rides!',
-          imageUrl: 'https://images.unsplash.com/photo-1571896349842-68c894913dbb?w=1200',
-          isActive: true,
-          displayOrder: 3
-        }
-      ]
-      await Banner.insertMany(defaultBanners)
-      console.log('Default banners created')
-    }
   } catch (error) {
     console.error('Error initializing default data:', error.message)
   }

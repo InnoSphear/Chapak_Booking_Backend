@@ -14,9 +14,7 @@ router.get('/', asyncHandler(async (req, res) => {
 }))
 
 router.get('/active', asyncHandler(async (req, res) => {
-  console.log('Fetching active banners...')
   const now = new Date()
-  console.log('Current time:', now)
   
   const banners = await Banner.find({
     isActive: true,
@@ -27,9 +25,6 @@ router.get('/active', asyncHandler(async (req, res) => {
       { startDate: { $lte: now }, endDate: { $gte: now } }
     ]
   }).sort({ displayOrder: 1 })
-  
-  console.log('Found banners:', banners.length)
-  banners.forEach(b => console.log('Banner:', b.title, 'imageUrl:', b.imageUrl))
   
   res.json(banners)
 }))
@@ -43,66 +38,25 @@ router.get('/:id', asyncHandler(async (req, res) => {
 }))
 
 router.post('/', auth, requireSuperAdmin, asyncHandler(async (req, res) => {
-  console.log('=== Banner POST Request ===')
-  console.log('User:', req.user?.email, 'Role:', req.user?.role)
-  console.log('Request body:', JSON.stringify(req.body))
-  
   const { title, description, imageUrl, imagePublicId, linkUrl, isActive, displayOrder, startDate, endDate } = req.body
 
   if (!title || !imageUrl) {
-    console.log('Validation failed: missing title or imageUrl')
     return res.status(400).json({ message: 'Please provide title and imageUrl' })
   }
 
-  // Ensure title and imageUrl are strings
-  const safeTitle = String(title).trim()
-  const safeImageUrl = String(imageUrl).trim()
-  
-  if (!safeTitle || !safeImageUrl) {
-    console.log('Validation failed: empty title or imageUrl after trim')
-    return res.status(400).json({ message: 'Please provide valid title and imageUrl' })
-  }
-
-  // Parse isActive properly
-  let bannerIsActive = true
-  if (isActive !== undefined) {
-    if (typeof isActive === 'boolean') {
-      bannerIsActive = isActive
-    } else if (typeof isActive === 'string') {
-      bannerIsActive = isActive.toLowerCase() === 'true'
-    }
-  }
-
-  // Parse displayOrder
-  let bannerDisplayOrder = 0
-  if (displayOrder !== undefined) {
-    bannerDisplayOrder = parseInt(displayOrder) || 0
-  }
-
-  console.log('Creating banner with data:', { 
-    title: safeTitle, 
-    imageUrl: safeImageUrl, 
-    displayOrder: bannerDisplayOrder,
-    isActive: bannerIsActive 
-  })
-
-  const banner = new Banner({
-    title: safeTitle,
+  const bannerData = {
+    title: String(title).trim(),
     description: description || '',
-    imageUrl: safeImageUrl,
+    imageUrl: String(imageUrl).trim(),
     imagePublicId: imagePublicId || '',
     linkUrl: linkUrl || '',
-    isActive: bannerIsActive,
-    displayOrder: bannerDisplayOrder,
+    isActive: isActive === true || isActive === 'true' || isActive === undefined,
+    displayOrder: parseInt(displayOrder) || 0,
     startDate: startDate ? new Date(startDate) : null,
     endDate: endDate ? new Date(endDate) : null
-  })
-  
-  console.log('Saving banner...')
-  const savedBanner = await banner.save()
-  console.log('Banner saved with _id:', savedBanner._id)
-  console.log('Banner imageUrl:', savedBanner.imageUrl)
-  
+  }
+
+  const savedBanner = await Banner.create(bannerData)
   res.status(201).json(savedBanner)
 }))
 
@@ -112,17 +66,17 @@ router.put('/:id', auth, requireSuperAdmin, asyncHandler(async (req, res) => {
     return res.status(404).json({ message: 'Banner not found' })
   }
 
-  const updateFields = ['title', 'description', 'imageUrl', 'imagePublicId', 'linkUrl', 'isActive', 'displayOrder', 'startDate', 'endDate']
-  
-  updateFields.forEach(field => {
-    if (req.body[field] !== undefined) {
-      if (field === 'startDate' || field === 'endDate') {
-        banner[field] = req.body[field] ? new Date(req.body[field]) : null
-      } else {
-        banner[field] = req.body[field]
-      }
-    }
-  })
+  const { title, description, imageUrl, imagePublicId, linkUrl, isActive, displayOrder, startDate, endDate } = req.body
+
+  if (title) banner.title = String(title).trim()
+  if (description !== undefined) banner.description = description
+  if (imageUrl) banner.imageUrl = String(imageUrl).trim()
+  if (imagePublicId !== undefined) banner.imagePublicId = imagePublicId
+  if (linkUrl !== undefined) banner.linkUrl = linkUrl
+  if (isActive !== undefined) banner.isActive = isActive === true || isActive === 'true'
+  if (displayOrder !== undefined) banner.displayOrder = parseInt(displayOrder) || 0
+  if (startDate !== undefined) banner.startDate = startDate ? new Date(startDate) : null
+  if (endDate !== undefined) banner.endDate = endDate ? new Date(endDate) : null
 
   await banner.save()
   res.json(banner)
