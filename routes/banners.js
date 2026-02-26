@@ -15,7 +15,10 @@ router.get('/', async (req, res) => {
 
 router.get('/active', async (req, res) => {
   try {
+    console.log('Fetching active banners...')
     const now = new Date()
+    console.log('Current time:', now)
+    
     const banners = await Banner.find({
       isActive: true,
       $or: [
@@ -25,8 +28,13 @@ router.get('/active', async (req, res) => {
         { startDate: { $lte: now }, endDate: { $gte: now } }
       ]
     }).sort({ displayOrder: 1 })
+    
+    console.log('Found banners:', banners.length)
+    banners.forEach(b => console.log('Banner:', b.title, 'imageUrl:', b.imageUrl))
+    
     res.json(banners)
   } catch (error) {
+    console.error('Error fetching active banners:', error)
     res.status(500).json({ message: 'Server error', error: error.message })
   }
 })
@@ -65,30 +73,47 @@ router.post('/', auth, requireSuperAdmin, async (req, res) => {
       return res.status(400).json({ message: 'Please provide valid title and imageUrl' })
     }
 
+    // Parse isActive properly
+    let bannerIsActive = true
+    if (isActive !== undefined) {
+      if (typeof isActive === 'boolean') {
+        bannerIsActive = isActive
+      } else if (typeof isActive === 'string') {
+        bannerIsActive = isActive.toLowerCase() === 'true'
+      }
+    }
+
+    // Parse displayOrder
+    let bannerDisplayOrder = 0
+    if (displayOrder !== undefined) {
+      bannerDisplayOrder = parseInt(displayOrder) || 0
+    }
+
     console.log('Creating banner with data:', { 
       title: safeTitle, 
-      imageUrl: safeImageUrl.substring(0, 50) + '...', 
-      displayOrder,
-      isActive 
+      imageUrl: safeImageUrl, 
+      displayOrder: bannerDisplayOrder,
+      isActive: bannerIsActive 
     })
 
-    const bannerData = {
+    const banner = new Banner({
       title: safeTitle,
       description: description || '',
       imageUrl: safeImageUrl,
       imagePublicId: imagePublicId || '',
       linkUrl: linkUrl || '',
-      isActive: isActive === true || isActive === 'true',
-      displayOrder: Number(displayOrder) || 0,
+      isActive: bannerIsActive,
+      displayOrder: bannerDisplayOrder,
       startDate: startDate ? new Date(startDate) : null,
       endDate: endDate ? new Date(endDate) : null
-    }
+    })
     
-    console.log('Banner data to create:', bannerData)
-    const banner = await Banner.create(bannerData)
-
-    console.log('Banner created successfully:', banner._id)
-    res.status(201).json(banner)
+    console.log('Saving banner...')
+    const savedBanner = await banner.save()
+    console.log('Banner saved with _id:', savedBanner._id)
+    console.log('Banner imageUrl:', savedBanner.imageUrl)
+    
+    res.status(201).json(savedBanner)
   } catch (error) {
     console.error('=== Banner Creation Error ===')
     console.error('Error name:', error.name)
