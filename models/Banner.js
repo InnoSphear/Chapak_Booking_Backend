@@ -21,6 +21,6 @@ bannerSchema.pre('save', function(next) {
 
 bannerSchema.index({ displayOrder: 1 })
 bannerSchema.index({ isActive: 1 })
-bannerSchema.index({ createdAt: -1 })
 
-export default mongoose.models.Banner || mongoose.model('Banner', bannerSchema)
+const Banner = mongoose.model('Banner', bannerSchema)
+export default Banner

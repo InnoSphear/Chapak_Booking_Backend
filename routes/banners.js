@@ -13,19 +13,22 @@ router.get('/', asyncHandler(async (req, res) => {
   res.json(banners)
 }))
 
+router.get('/debug', asyncHandler(async (req, res) => {
+  const allBanners = await Banner.find().sort({ displayOrder: 1 })
+  res.json({
+    total: allBanners.length,
+    banners: allBanners.map(b => ({
+      _id: b._id,
+      title: b.title,
+      imageUrl: b.imageUrl,
+      isActive: b.isActive,
+      displayOrder: b.displayOrder
+    }))
+  })
+}))
+
 router.get('/active', asyncHandler(async (req, res) => {
-  const now = new Date()
-  
-  const banners = await Banner.find({
-    isActive: true,
-    $or: [
-      { startDate: null, endDate: null },
-      { startDate: { $lte: now }, endDate: null },
-      { startDate: null, endDate: { $gte: now } },
-      { startDate: { $lte: now }, endDate: { $gte: now } }
-    ]
-  }).sort({ displayOrder: 1 })
-  
+  const banners = await Banner.find({ isActive: true }).sort({ displayOrder: 1 })
   res.json(banners)
 }))
 
@@ -37,28 +40,39 @@ router.get('/:id', asyncHandler(async (req, res) => {
   res.json(banner)
 }))
 
-router.post('/', auth, requireSuperAdmin, asyncHandler(async (req, res) => {
-  const { title, description, imageUrl, imagePublicId, linkUrl, isActive, displayOrder, startDate, endDate } = req.body
+router.post('/', auth, requireSuperAdmin, async (req, res) => {
+  try {
+    console.log('Banner POST body:', req.body)
+    
+    const { title, description, imageUrl, imagePublicId, linkUrl, isActive, displayOrder, startDate, endDate } = req.body
 
-  if (!title || !imageUrl) {
-    return res.status(400).json({ message: 'Please provide title and imageUrl' })
+    if (!title || !imageUrl) {
+      return res.status(400).json({ message: 'Please provide title and imageUrl' })
+    }
+
+    const bannerData = {
+      title: title.trim(),
+      description: description || '',
+      imageUrl: imageUrl.trim(),
+      imagePublicId: imagePublicId || '',
+      linkUrl: linkUrl || '',
+      isActive: isActive !== false,
+      displayOrder: parseInt(displayOrder) || 0,
+      startDate: startDate ? new Date(startDate) : null,
+      endDate: endDate ? new Date(endDate) : null
+    }
+
+    console.log('Creating banner:', bannerData)
+    
+    const savedBanner = await Banner.create(bannerData)
+    console.log('Banner saved successfully:', savedBanner._id)
+    
+    res.status(201).json(savedBanner)
+  } catch (error) {
+    console.error('Banner create error:', error.message)
+    res.status(500).json({ message: 'Server error', error: error.message })
   }
-
-  const bannerData = {
-    title: String(title).trim(),
-    description: description || '',
-    imageUrl: String(imageUrl).trim(),
-    imagePublicId: imagePublicId || '',
-    linkUrl: linkUrl || '',
-    isActive: isActive === true || isActive === 'true' || isActive === undefined,
-    displayOrder: parseInt(displayOrder) || 0,
-    startDate: startDate ? new Date(startDate) : null,
-    endDate: endDate ? new Date(endDate) : null
-  }
-
-  const savedBanner = await Banner.create(bannerData)
-  res.status(201).json(savedBanner)
-}))
+})
 
 router.put('/:id', auth, requireSuperAdmin, asyncHandler(async (req, res) => {
   const banner = await Banner.findById(req.params.id)
