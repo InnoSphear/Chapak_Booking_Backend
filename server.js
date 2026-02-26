@@ -74,6 +74,9 @@ app.get('/api/health', (req, res) => {
     mongoDB: mongoState === 1 ? 'connected' : 'disconnected'
   })
 })
+app.get('/api/hello', (req,res)=>{
+  res.send("Hello I am working")
+})
 
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err)
